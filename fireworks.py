@@ -13,7 +13,7 @@ pygame.display.set_caption("Fireworks")
 
 class Particle:
     max_v = 4
-    r = 3
+    r = 2
     def __init__(self, coordinates, velocities, color, friction=None, opacity=1, decay=.004):
         self.x, self.y = coordinates
         self.vx, self.vy = velocities
@@ -44,7 +44,7 @@ class Line(Particle):
         super().__init__(end, velocities, color, decay=decay)
         self.start_x, self.start_y = start
         self.start_vx, self.start_vy = velocities
-        self.start_friction = self.friction * 0.85
+        self.start_friction = self.friction * 0.9
     
     def update(self):
         super().update()
@@ -112,8 +112,8 @@ class Firework:
 
     def explode(self):
         self.exploded = True
-        num_lines = int(self.num_particles * .05)
-        num_circles = int(self.num_particles * .95)
+        num_lines = int(self.num_particles * .2)
+        num_circles = int(self.num_particles * .8)
         num_circles += self.num_particles - (num_circles + num_lines)
         for i in range(1, num_circles + 1):
             color_index = int(self.start_index + self.color_range * (i / num_circles))
