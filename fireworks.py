@@ -12,17 +12,15 @@ pygame.display.set_caption("Fireworks")
 
 
 class Particle:
-    colors = [(r,g,b) for r in range(50, 255, 5) for b in range(50, 255, 5) for g in range(50, 255, 5)]
     max_v = 4
     r = 3
-    def __init__(self, coordinates, velocities, color=None, r=3, friction=None, opacity=1, decay=.004):
+    def __init__(self, coordinates, velocities, color, friction=None, opacity=1, decay=.004):
         self.x, self.y = coordinates
         self.vx, self.vy = velocities
-        self.friction = friction or 0.99 - random.random() * 0.001
-        self.lifetime_frames = 60 * random.random() + 60
+        self.friction = friction or 0.999 - random.random() * 0.005
+        self.lifetime_frames = 30 * random.random() + 40
         self.lifetime = 0
         self.color = color
-        self.radius = r
         self.opacity = opacity
         self.opacity_decay = (decay - .001) * random.random() + .001
 
@@ -36,17 +34,32 @@ class Particle:
         self.lifetime += 1
 
     def is_off(self):
-        # return self.opacity <= .8
         return self.lifetime >= self.lifetime_frames or self.opacity <= .9
 
     def draw(self):
         pygame.draw.circle(WIN, self.color, (int(self.x), int(self.y)), self.r)
     
+class Line(Particle):
+    def __init__(self, start, end, velocities, color, opacity=1, decay=.004):
+        super().__init__(end, velocities, color, decay=decay)
+        self.start_x, self.start_y = start
+        self.start_vx, self.start_vy = velocities
+        self.start_friction = self.friction * 0.85
+    
+    def update(self):
+        super().update()
+        self.start_vx *= self.start_friction
+        self.start_vy *= self.start_friction
+        self.start_x += self.start_vx
+        self.start_y += self.start_vy
+
+    def draw(self):
+        pygame.draw.line(WIN, self.color, (int(self.start_x), int(self.start_y)), (int(self.x), int(self.y)), self.r)
 
 
 class Firework:
     colors = [(r,g,b) for r in range(50, 255, 5) for b in range(50, 255, 5) for g in range(50, 255, 5)]
-    explosion_height_range = (100, 250)
+    explosion_height_range = (100, 350)
     r = 4
 
     def __init__(self, x=None, rainbow=False, color_range=1000, num_particles=100, delay_frames=0):
@@ -73,13 +86,11 @@ class Firework:
         self.color = self.colors[random.randint(self.start_index, self.end_index)]
 
     def update(self):
-        if self.frames >= self.delay_frames: 
-            self.delay_frames = 0
-        else: 
-            self.frames += 1
-            return
-        if self.frames > self.delay_frames:
-            self.finished = True
+        if self.delay_frames:
+            if self.frames <= self.delay_frames: 
+                self.frames += 1
+                return
+            self.delay_frames = None
         if not self.exploded:
             self.vy += g
             self.y += self.vy
@@ -101,12 +112,20 @@ class Firework:
 
     def explode(self):
         self.exploded = True
-        for i in range(1, self.num_particles + 1):
-            color_index = int(self.start_index + self.color_range * (i / self.num_particles))
-            pvx = math.cos(math.pi * self.num_particles / i) * ((Particle.max_v - .5) * random.random() + .5)
-            pvy = math.sin(math.pi * self.num_particles / i) * ((Particle.max_v - .5) * random.random() + .5)
+        num_lines = int(self.num_particles * .05)
+        num_circles = int(self.num_particles * .95)
+        num_circles += self.num_particles - (num_circles + num_lines)
+        for i in range(1, num_circles + 1):
+            color_index = int(self.start_index + self.color_range * (i / num_circles))
+            pvx = math.cos(math.pi * num_circles / i) * ((Particle.max_v - .5) * random.random() + .5)
+            pvy = math.sin(math.pi * num_circles / i) * ((Particle.max_v - .5) * random.random() + .5)
             self.particles.append(Particle((self.x, self.y), (pvx, pvy), self.colors[color_index]))
-
+        
+        for i in range(1, num_lines + 1):
+            color_index = int(self.start_index + self.color_range * (i / num_lines))
+            pvx = math.cos(math.pi * num_lines / i) * ((Particle.max_v - .5) * random.random() + .5)
+            pvy = math.sin(math.pi * num_lines / i) * ((Particle.max_v - .5) * random.random() + .5)
+            self.particles.append(Line((self.x, self.y), (self.x, self.y), (pvx, pvy), self.colors[color_index]))
 
 def manage_fireworks(fireworks: list[Firework]):
     WIN.fill((0, 0, 0))
@@ -115,7 +134,8 @@ def manage_fireworks(fireworks: list[Firework]):
         firework.update()
     fireworks = list(filter(lambda f: not f.finished, fireworks))
     for _ in range(initial_n - len(fireworks)):
-        fireworks.append(Firework())
+        rainbow = random.randint(0, 1)
+        fireworks.append(Firework(rainbow=rainbow))
     pygame.display.update()
     return fireworks
 
